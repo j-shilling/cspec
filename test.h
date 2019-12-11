@@ -11,11 +11,17 @@
 #include <unistd.h>
 
 typedef int (*test_t)(int);
+
 static const int TBUFFER_SIZE = 512;
+
+static const int TPASSED = 0;
+static const int TFAILED = -1;
+static const int TERROR = -2;
 
 typedef struct _test_case {
   test_t func;
   int status;
+  const char *name;
   int pipe[2];
   char output[TBUFFER_SIZE];
 } test_case_t;
@@ -42,16 +48,20 @@ static inline void register_test_case(test_case_list_t *list) {
   }
 }
 
-#define TEST(tfunc)                                                            \
+#define START_TEST(tfunc)                                                      \
   static inline int tfunc(int);                                                \
-  static test_case_t tfunc##_test_case = {.func = tfunc};                      \
+  static test_case_t tfunc##_test_case = {.func = tfunc, .name = #tfunc};      \
   static test_case_list_t tfunc##_test_case_node = {                           \
       .item = &tfunc##_test_case, .next = NULL};                               \
   static inline void __attribute__((constructor))                              \
       register_test_##tfunc(void) {                                            \
     register_test_case(&tfunc##_test_case_node);                               \
   }                                                                            \
-  static inline int tfunc(int fd)
+  static inline int tfunc(int fd) {                                            \
+
+#define END_TEST                                                               \
+  return TPASSED;                                                              \
+  }
 
 int main(int argc, char *argv[]) {
   for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
@@ -78,9 +88,9 @@ int main(int argc, char *argv[]) {
       int status;
       waitpid(pid, &status, 0);
       if ((test->status = status)) {
-        printf("F");
+        printf("\x1b[31mF\x1b[0m");
       } else {
-        printf(".");
+        printf("\x1b[32m.\x1b[0m");
       }
     }
   }
@@ -88,8 +98,10 @@ int main(int argc, char *argv[]) {
   putchar('\n');
 
   for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
-    if (cur->item->status)
-      printf("from test: %s\n", cur->item->output);
+    if (TPASSED != cur->item->status)
+      printf("\x1b[31m[FAIL]: %s\n%s\x1b[0m\n",
+	     cur->item->name,
+             cur->item->output);
   }
   return 0;
 }
