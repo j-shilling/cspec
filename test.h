@@ -14,9 +14,9 @@ typedef int (*test_t)(int);
 
 static const int TBUFFER_SIZE = 512;
 
-static const int TPASSED = 0;
-static const int TFAILED = -1;
-static const int TERROR = -2;
+static const int TPASS = 0;
+static const int TFAIL = 1;
+static const int TERROR = 2;
 
 typedef struct _test_case {
   test_t func;
@@ -32,11 +32,12 @@ typedef struct _test_case_list {
 } test_case_list_t;
 
 typedef struct _test_suite {
+  const char *name;
   test_case_list_t *head;
   test_case_list_t *tail;
 } test_suite;
 
-static struct _test_suite suite = {.head = NULL, .tail = NULL};
+static struct _test_suite suite = {.name = NULL, .head = NULL, .tail = NULL};
 
 static inline void register_test_case(test_case_list_t *list) {
   if (suite.tail) {
@@ -48,23 +49,57 @@ static inline void register_test_case(test_case_list_t *list) {
   }
 }
 
-#define START_TEST(tfunc)                                                      \
+#define __xconcat(x, y) x##y
+#define __concat(x, y) __xconcat(x, y)
+#define __to_symb(x) __concat(x, __COUNTER__)
+#define __TEST_FUNCTION__ __to_symb(test)
+
+#define __xinit_test(tfunc, tname)                                             \
   static inline int tfunc(int);                                                \
-  static test_case_t tfunc##_test_case = {.func = tfunc, .name = #tfunc};      \
+  static test_case_t tfunc##_test_case = {.func = tfunc, .name = tname};       \
   static test_case_list_t tfunc##_test_case_node = {                           \
       .item = &tfunc##_test_case, .next = NULL};                               \
   static inline void __attribute__((constructor))                              \
       register_test_##tfunc(void) {                                            \
     register_test_case(&tfunc##_test_case_node);                               \
   }                                                                            \
-  static inline int tfunc(int fd) {                                            \
+  static inline int tfunc(int fd) {
+#define __init_test(x, y) __xinit_test(x, y)
+#define START_TEST(tname) __init_test(__TEST_FUNCTION__, tname)
 
 #define END_TEST                                                               \
-  return TPASSED;                                                              \
+  return TPASS;                                                                \
   }
 
-int main(int argc, char *argv[]) {
+#define DESCRIBE(sname)                                                        \
+  static inline void __attribute__((constructor)) describe_suite(void) {       \
+    suite.name = sname;                                                        \
+  }
+
+#define IT(message, body) START_TEST("it " message) body END_TEST
+
+static inline void __print_tests_with_status(const char *message, const int status) {
+  printf("%s:\n\n", message);
+  int i = 0;
   for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
+    if (status == cur->item->status) {
+      printf("%4d) %s\n", ++i, cur->item->name);
+      printf("      \x1b[31m%s\x1b[0m\n", cur->item->output);
+    }
+  }
+}
+
+int main(int argc, char *argv[]) {
+  int examples = 0;
+  int failures = 0;
+  int errors = 0;
+
+  if (suite.name) {
+    printf("%s:\n\n", suite.name);
+  }
+
+  for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
+    examples++;
     test_case_t *test = cur->item;
 
     fflush(stdout);
@@ -87,8 +122,13 @@ int main(int argc, char *argv[]) {
 
       int status;
       waitpid(pid, &status, 0);
-      if ((test->status = status)) {
+      test->status = WEXITSTATUS(status);
+      if (TFAIL == test->status) {
+        failures++;
         printf("\x1b[31mF\x1b[0m");
+      } else if (TERROR == test->status) {
+        errors++;
+        printf("\x1b[31mE\x1b[0m");
       } else {
         printf("\x1b[32m.\x1b[0m");
       }
@@ -97,11 +137,19 @@ int main(int argc, char *argv[]) {
 
   putchar('\n');
 
-  for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
-    if (TPASSED != cur->item->status)
-      printf("\x1b[31m[FAIL]: %s\n%s\x1b[0m\n",
-	     cur->item->name,
-             cur->item->output);
+  if (failures) {
+    __print_tests_with_status("Failures", TFAIL);
   }
+  if (errors) {
+    __print_tests_with_status("Errors", TERROR);
+  }
+
+  if (failures || errors)
+    printf("\x1b[31m");
+  else
+    printf("\x1b[32m");
+  printf("%d examples, %d failures, %d errors\x1b[0m\n", examples, failures,
+         errors);
+
   return 0;
 }
