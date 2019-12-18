@@ -12,7 +12,8 @@
 
 typedef int (*test_t)(int);
 
-static const int TBUFFER_SIZE = 512;
+static const int TOUTPUT_BUFFER_SIZE = 512;
+static const int TFILE_BUFFER_SIZE = 128;
 
 static const int TPASS = 0;
 static const int TFAIL = 1;
@@ -21,9 +22,11 @@ static const int TERROR = 2;
 typedef struct _test_case {
   test_t func;
   int status;
+  int line_number;
   const char *name;
   int pipe[2];
-  char output[TBUFFER_SIZE];
+  char output[TOUTPUT_BUFFER_SIZE];
+  char file[TFILE_BUFFER_SIZE];
 } test_case_t;
 
 typedef struct _test_case_list {
@@ -63,8 +66,12 @@ static inline void register_test_case(test_case_list_t *list) {
       register_test_##tfunc(void) {                                            \
     register_test_case(&tfunc##_test_case_node);                               \
   }                                                                            \
-  static inline int tfunc(int fd) {
+  static inline int tfunc(int fd) {                                            \
+    int line;                                                                  \
+    const char filename[] = __FILE__;
+
 #define __init_test(x, y) __xinit_test(x, y)
+
 #define START_TEST(tname) __init_test(__TEST_FUNCTION__, tname)
 
 #define END_TEST                                                               \
@@ -78,13 +85,37 @@ static inline void register_test_case(test_case_list_t *list) {
 
 #define IT(message, body) START_TEST("it " message) body END_TEST
 
-static inline void __print_tests_with_status(const char *message, const int status) {
+#define fail(args...)                                                          \
+  do {                                                                         \
+    printf("fd = %d", fd);                                                     \
+    line = __LINE__;                                                           \
+    write(fd, &line, sizeof(line));                                            \
+    write(fd, filename, sizeof(filename));                                     \
+    dprintf(fd, args);                                                         \
+    return TFAIL;                                                              \
+  } while (0);
+
+#define assert(expr)                                                           \
+  do {                                                                         \
+    if (!(expr)) {                                                             \
+      fail("Failure/Error: assert()\n\n"                                       \
+           "  expected: true\n"                                                \
+           "       got: false\n");                                             \
+    }                                                                          \
+  } while (0);
+
+static inline void __print_tests_with_status(const char *message,
+                                             const int status) {
   printf("%s:\n\n", message);
   int i = 0;
   for (test_case_list_t *cur = suite.head; cur; cur = cur->next) {
     if (status == cur->item->status) {
       printf("%4d) %s\n", ++i, cur->item->name);
+
       printf("      \x1b[31m%s\x1b[0m\n", cur->item->output);
+
+      printf("\x1b[36m    // %s:%d\x1b[0m\n\n", cur->item->file,
+             cur->item->line_number);
     }
   }
 }
@@ -117,7 +148,9 @@ int main(int argc, char *argv[]) {
       // We are in the parent process
 
       close(test->pipe[1]);
-      read(test->pipe[0], test->output, TBUFFER_SIZE);
+      read(test->pipe[0], &test->line_number, sizeof(test->line_number));
+      read(test->pipe[0], test->file, TFILE_BUFFER_SIZE);
+      read(test->pipe[0], test->output, TOUTPUT_BUFFER_SIZE);
       close(test->pipe[0]);
 
       int status;
