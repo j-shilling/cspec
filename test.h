@@ -12,8 +12,16 @@
 
 typedef int (*test_t)(int);
 
-static const int TOUTPUT_BUFFER_SIZE = 512;
-static const int TFILE_BUFFER_SIZE = 128;
+#ifndef CSPEC_TEST_OUTPUT_BUFFER_SIZE
+#define CSPEC_TEST_OUTPUT_BUFFER_SIZE 512
+#endif
+
+#ifndef CSPEC_TEST_FILENAME_BUFFER_SIZE
+#define CSPEC_TEST_FILENAME_BUFFER_SIZE 128
+#endif
+
+#define TOUTPUT_BUFFER_SIZE CSPEC_TEST_OUTPUT_BUFFER_SIZE
+#define TFILE_BUFFER_SIZE CSPEC_TEST_FILENAME_BUFFER_SIZE
 
 static const int TPASS = 0;
 static const int TFAIL = 1;
