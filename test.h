@@ -66,9 +66,7 @@ static inline void register_test_case(test_case_list_t *list) {
       register_test_##tfunc(void) {                                            \
     register_test_case(&tfunc##_test_case_node);                               \
   }                                                                            \
-  static inline int tfunc(int fd) {                                            \
-    int line;                                                                  \
-    const char filename[] = __FILE__;
+  static inline int tfunc(int fd) {
 
 #define __init_test(x, y) __xinit_test(x, y)
 
@@ -88,7 +86,8 @@ static inline void register_test_case(test_case_list_t *list) {
 #define fail(args...)                                                          \
   do {                                                                         \
     printf("fd = %d", fd);                                                     \
-    line = __LINE__;                                                           \
+    const int line = __LINE__;                                                 \
+    const char filename[] = __FILE__;                                          \
     write(fd, &line, sizeof(line));                                            \
     write(fd, filename, sizeof(filename));                                     \
     dprintf(fd, args);                                                         \
