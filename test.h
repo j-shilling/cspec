@@ -54,6 +54,32 @@ typedef struct _test_case_list {
   struct _test_case_list *next;
 } test_case_list_t;
 
+/*****************************************************************************/
+/*                                 Test Case                                 */
+/*****************************************************************************/
+typedef struct _cspec_test_case {
+
+} CSpecTestCase;
+
+/*****************************************************************************/
+/*                                Test Suite                                 */
+/*****************************************************************************/
+
+typedef struct _cspec_test_suite {
+  const char *name;
+
+  CSpecTestCase *head;
+  CSpecTestCase *tail;
+
+  struct _cspec_test_suite *next;
+} CSpecTestSuite;
+
+static CSpecTestSuite *cspec_test_suites_head = NULL;
+static CSpecTestSuite *cspec_test_suites_tail = NULL;
+
+__create_register_function(cspec_register_test_suite, CSpecTestSuite,
+                           cspec_test_suites);
+
 typedef struct _test_suite {
   const char *name;
   test_case_list_t *head;
