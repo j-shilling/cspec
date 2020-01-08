@@ -23,6 +23,18 @@ typedef int (*test_t)(int);
 #define TOUTPUT_BUFFER_SIZE CSPEC_TEST_OUTPUT_BUFFER_SIZE
 #define TFILE_BUFFER_SIZE CSPEC_TEST_FILENAME_BUFFER_SIZE
 
+// Generates a function that appends and element to a linked list
+#define __create_register_function(function_name, node_type, list_prefix)      \
+  static inline void function_name(node_type *node) {                          \
+    if (list_prefix##_tail) {                                                  \
+      list_prefix##_tail->next = node;                                         \
+      list_prefix##_tail = node;                                               \
+    } else {                                                                   \
+      list_prefix##_head = node;                                               \
+      list_prefix##_tail = node;                                               \
+    }                                                                          \
+  }
+
 static const int TPASS = 0;
 static const int TFAIL = 1;
 static const int TERROR = 2;
