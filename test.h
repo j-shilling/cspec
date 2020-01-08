@@ -3,9 +3,6 @@
 #endif
 #define __TEST_H__
 
-#define TOUTPUT_BUFFER_SIZE CSPEC_TEST_OUTPUT_BUFFER_SIZE
-#define TFILE_BUFFER_SIZE CSPEC_TEST_FILENAME_BUFFER_SIZE
-
 // Generates a function that appends and element to a linked list
 #define __create_register_function(function_name, node_type, list_prefix)      \
   static inline void function_name(node_type *node) {                          \
@@ -26,7 +23,9 @@
 /*                                 Test Case                                 */
 /*****************************************************************************/
 typedef struct _cspec_test_case {
+  const char *desc;
 
+  struct _cspec_test_case *next;
 } CSpecTestCase;
 
 /*****************************************************************************/
@@ -36,16 +35,21 @@ typedef struct _cspec_test_case {
 typedef struct _cspec_test_suite {
   const char *desc;
 
-  CSpecTestCase *head;
-  CSpecTestCase *tail;
+  CSpecTestCase *tests_head;
+  CSpecTestCase *tests_tail;
 
   struct _cspec_test_suite *next;
-  struct _cspec_test_suite *children_head;
-  struct _cspec_test_suite *children_tail;
 } CSpecTestSuite;
 
-static CSpecTestSuite *cspec_test_suites_head = 0;
-static CSpecTestSuite *cspec_test_suites_tail = 0;
+static CSpecTestSuite cspec_global_tests = {
+    .desc = 0, .tests_head = 0, .tests_tail = 0, .next = 0};
+
+static CSpecTestSuite *cspec_test_suites_head = &cspec_global_tests;
+static CSpecTestSuite *cspec_test_suites_tail = &cspec_global_tests;
+
+/*****************************************************************************/
+/*                             Test Suite Methods                            */
+/*****************************************************************************/
 
 __create_register_function(cspec_register_test_suite, CSpecTestSuite,
                            cspec_test_suites);
@@ -53,24 +57,47 @@ __create_register_function(cspec_register_test_suite, CSpecTestSuite,
 #define __SUITE__ __new_symb(suite)
 
 #define __init_test_suite(__name, __desc)                                      \
-  static CSpecTestSuite __name = {.desc = __desc,                              \
-                                  .head = 0,                                   \
-                                  .tail = 0,                                   \
-                                  .next = 0,                                   \
-                                  .children_head = 0,                          \
-                                  .children_tail = 0};                         \
+  static CSpecTestSuite __name = {                                             \
+      .desc = __desc, .tests_head = 0, .tests_tail = 0, .next = 0};            \
   static inline void __attribute__((constructor))                              \
       __concat(register_suite_, __name)(void) {                                \
     cspec_register_test_suite(&__name);                                        \
   }
 
-#define describe(desc, body) __init_test_suite(__SUITE__, desc)
+#define describe(desc, body) __init_test_suite(__SUITE__, desc) body
+
+/*****************************************************************************/
+/*                             Test Case Methods                             */
+/*****************************************************************************/
+
+__create_register_function(cspec_register_test_case, CSpecTestCase,
+                           cspec_test_suites_tail->tests);
+
+#define __TEST__ __new_symb(suite)
+
+#define __init_test_case(__name, __desc, __body)                               \
+  static CSpecTestCase __name = {.desc = __desc, .next = 0};                   \
+  static inline void __attribute__((constructor))                              \
+      __concat(register_test_, __name)(void) {                                 \
+    cspec_register_test_case(&__name);                                         \
+  }
+
+#define it(desc, body) __init_test_case(__TEST__, desc, body);
+
+/*****************************************************************************/
+/*                                    Main                                   */
+/*****************************************************************************/
 
 int main(int argc, char *argv[]) {
   for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
-    puts(cur->desc);
-      for (CSpecTestSuite *child = cur->children_head; child; child = child->next) {
-	printf("  %s", child->desc);
+    if (cur->desc)
+      puts(cur->desc);
+    for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
+      if (cur->desc) {
+        putchar(' ');
+        putchar(' ');
       }
+      puts(test->desc);
+    }
   }
 }
