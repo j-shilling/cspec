@@ -1,0 +1,7 @@
+# Folders for compiled objects, programs, and generated files
+bin
+dep
+obj
+
+# Folders for temp files used by dev tools
+.ccls-cache
