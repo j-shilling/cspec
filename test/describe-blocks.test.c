@@ -1,19 +1,23 @@
 #include <stdio.h>
 #include <test.h>
 
-it("Has a global test",
-
-   );
+it("test 1",
+   return 1;
+);
 
 describe("First Describe Block",
-    it("Has a test",
+  it("test 4",
 
-      );
-	 it("Has another test",
-	   );
   );
 
+  it("test 3",
+     CSpecTestCase *test = 0;
+     test->run();
+  );
+);
+
 describe("Second Describe Block",
-  it("Has a test",
-                   );
+  it("test 4",
+
+  );
 );
