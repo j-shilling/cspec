@@ -8,18 +8,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Generates a function that appends and element to a linked list
-#define __create_register_function(function_name, node_type, list_prefix)      \
-  static inline void function_name(node_type *node) {                          \
-    if (list_prefix##_tail) {                                                  \
-      list_prefix##_tail->next = node;                                         \
-      list_prefix##_tail = node;                                               \
-    } else {                                                                   \
-      list_prefix##_head = node;                                               \
-      list_prefix##_tail = node;                                               \
-    }                                                                          \
-  }
-
 #define __xconcat(x, y) x##y
 #define __concat(x, y) __xconcat(x, y)
 #define __new_symb(x) __concat(x, __COUNTER__)
@@ -60,8 +48,10 @@ static CSpecTestSuite *cspec_test_suites_tail = &cspec_global_tests;
 /*                             Test Suite Methods                            */
 /*****************************************************************************/
 
-__create_register_function(cspec_register_test_suite, CSpecTestSuite,
-                           cspec_test_suites);
+static inline void cspec_register_test_suite(CSpecTestSuite *node) {
+  cspec_test_suites_tail->next = node;
+  cspec_test_suites_tail = node;
+}
 
 #define __SUITE__ __new_symb(suite)
 
@@ -79,8 +69,15 @@ __create_register_function(cspec_register_test_suite, CSpecTestSuite,
 /*                             Test Case Methods                             */
 /*****************************************************************************/
 
-__create_register_function(cspec_register_test_case, CSpecTestCase,
-                           cspec_test_suites_tail->tests);
+static inline void cspec_register_test_case(CSpecTestCase *node) {
+  if (cspec_test_suites_tail->tests_tail) {
+    cspec_test_suites_tail->tests_tail->next = node;
+    cspec_test_suites_tail->tests_tail = node;
+  } else {
+    cspec_test_suites_tail->tests_tail = node;
+    cspec_test_suites_tail->tests_head = node;
+  }
+}
 
 #define __TEST__ __new_symb(suite)
 
