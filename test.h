@@ -12,6 +12,11 @@
 #define __concat(x, y) __xconcat(x, y)
 #define __new_symb(x) __concat(x, __COUNTER__)
 
+// Color Macros
+#define CSPEC_COLOR_RESET "\033[0m"
+#define CSPEC_COLOR_RED "\033[0;31m"
+#define CSPEC_COLOR_GREEN "\033[0;32m"
+
 /*****************************************************************************/
 /*                                 Test Case                                 */
 /*****************************************************************************/
@@ -104,7 +109,7 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
 int main(int argc, char *argv[]) {
   int nerrors = 0;
   int nfailures = 0;
-  int npasses = 0;
+  int ntests = 0;
 
   for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
     for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
@@ -123,22 +128,35 @@ int main(int argc, char *argv[]) {
         // Wait for child to finish
         int status;
         waitpid(pid, &status, 0);
-
         // Figure out if it crashed, failed, or passed
         if (!WIFEXITED(status)) {
           nerrors++;
-          puts("E");
+          ntests++;
+          printf(CSPEC_COLOR_RED "E" CSPEC_COLOR_RESET);
           test->status = -1;
         } else if (WEXITSTATUS(status)) {
           nfailures++;
-          puts("F");
+          ntests++;
+          printf(CSPEC_COLOR_RED "F" CSPEC_COLOR_RESET);
           test->status = WEXITSTATUS(status);
         } else {
-          npasses++;
-          puts(".");
+          ntests++;
+          printf(CSPEC_COLOR_GREEN "." CSPEC_COLOR_RESET);
           test->status = 0;
         }
+        fflush(stdout);
       }
     }
   }
+  putchar('\n');
+
+  // Finish up with a quick summary
+  putchar('\n');
+  if (nerrors || nfailures)
+    printf(CSPEC_COLOR_RED);
+  else
+    printf(CSPEC_COLOR_GREEN);
+
+  printf("%d examples, %d failures, %d errors" CSPEC_COLOR_RESET "\n", ntests,
+         nfailures, nerrors);
 }

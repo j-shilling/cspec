@@ -2,17 +2,15 @@
 #include <test.h>
 
 it("test 1",
-   return 1;
+
 );
 
 describe("First Describe Block",
-  it("test 4",
-
+  it("test 2",
+     return 1;
   );
 
   it("test 3",
-     CSpecTestCase *test = 0;
-     test->run();
   );
 );
 
@@ -20,4 +18,6 @@ describe("Second Describe Block",
   it("test 4",
 
   );
+
+	 it("test 5", );
 );
