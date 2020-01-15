@@ -40,7 +40,7 @@ $$($(1)_OBJ): $$($(1)_SRC)
 	@mkdir -p $$(dir $$@)
 	@mkdir -p $$(dir $$($(1)_DEP))
 	@echo "  [CC] $$@"
-	@$$(CC) $$(WARNINGS) $$(CFLAGS) $$($(1)_DEPFLAGS) -I. -c -o $$@ $$<
+	@$$(CC) $$(WARNINGS) -ggdb3 -O0 $$(CFLAGS) $$($(1)_DEPFLAGS) -I. -c -o $$@ $$<
 
 .PHONY: $(1)
 
