@@ -16,12 +16,15 @@
 #define CSPEC_COLOR_RESET "\033[0m"
 #define CSPEC_COLOR_RED "\033[0;31m"
 #define CSPEC_COLOR_GREEN "\033[0;32m"
+#define CSPEC_COLOR_CYAN "\033[0;36m"
 
 /*****************************************************************************/
 /*                                 Test Case                                 */
 /*****************************************************************************/
 typedef struct _cspec_test_case {
   const char *desc;
+  const char *filename;
+  const int line;
 
   int (*run)(void);
 
@@ -88,8 +91,11 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
 
 #define __init_test_case(__name, __desc)                                       \
   static inline int __concat(run_test_, __name)(void);                         \
-  static CSpecTestCase __name = {                                              \
-      .desc = __desc, .next = 0, .run = __concat(run_test_, __name)};          \
+  static CSpecTestCase __name = {.desc = __desc,                               \
+                                 .next = 0,                                    \
+                                 .run = __concat(run_test_, __name),           \
+                                 .filename = __FILE__,                         \
+                                 .line = __LINE__};                            \
   static inline void __attribute__((constructor))                              \
       __concat(register_test_, __name)(void) {                                 \
     cspec_register_test_case(&__name);                                         \
@@ -137,18 +143,51 @@ int main(int argc, char *argv[]) {
         } else if (WEXITSTATUS(status)) {
           nfailures++;
           ntests++;
+
           printf(CSPEC_COLOR_RED "F" CSPEC_COLOR_RESET);
-          test->status = WEXITSTATUS(status);
+          test->status = 1;
         } else {
           ntests++;
           printf(CSPEC_COLOR_GREEN "." CSPEC_COLOR_RESET);
           test->status = 0;
         }
+        // We have to flush stdout because of all the forking
         fflush(stdout);
       }
     }
   }
   putchar('\n');
+
+  // If there are any failures, print their output
+  if (nfailures) {
+    printf("\nFailures:\n\n");
+
+    int counter = 0;
+    for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
+      for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
+        if (1 == test->status) {
+          printf("%4d) %s %s\n", ++counter, cur->desc ? cur->desc : "It",
+                 test->desc);
+        }
+      }
+    }
+  }
+
+  if (nerrors) {
+    printf("\nErrors:\n\n");
+
+    int counter = 0;
+    for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
+      for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
+        if (-1 == test->status) {
+          printf("%4d) %s %s\n", ++counter, cur->desc ? cur->desc : "It",
+                 test->desc);
+          printf(CSPEC_COLOR_CYAN "      # ./%s:%d\n\n" CSPEC_COLOR_RESET,
+                 test->filename, test->line);
+        }
+      }
+    }
+  }
 
   // Finish up with a quick summary
   putchar('\n');
