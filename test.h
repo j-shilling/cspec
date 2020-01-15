@@ -18,15 +18,21 @@
 #define CSPEC_COLOR_GREEN "\033[0;32m"
 #define CSPEC_COLOR_CYAN "\033[0;36m"
 
+// Buffer Size Macros
+#ifndef CSPEC_OUTPUT_BUFFER_SIZE
+#define CSPEC_OUTPUT_BUFFER_SIZE 512
+#endif
+
 /*****************************************************************************/
 /*                                 Test Case                                 */
 /*****************************************************************************/
 typedef struct _cspec_test_case {
   const char *desc;
   const char *filename;
-  const int line;
+  int line;
 
-  int (*run)(void);
+  int (*run)(int);
+  char output[CSPEC_OUTPUT_BUFFER_SIZE];
 
   int status;
 
@@ -90,7 +96,7 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
 #define __TEST__ __new_symb(suite)
 
 #define __init_test_case(__name, __desc)                                       \
-  static inline int __concat(run_test_, __name)(void);                         \
+  static inline int __concat(run_test_, __name)(int);                          \
   static CSpecTestCase __name = {.desc = __desc,                               \
                                  .next = 0,                                    \
                                  .run = __concat(run_test_, __name),           \
@@ -100,13 +106,23 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
       __concat(register_test_, __name)(void) {                                 \
     cspec_register_test_case(&__name);                                         \
   }                                                                            \
-  static inline int __concat(run_test_, __name)(void)
+  static inline int __concat(run_test_, __name)(int fd)
 
 #define it(desc, body)                                                         \
   __init_test_case(__TEST__, desc) {                                           \
+    int line = __LINE__;                                                       \
     body;                                                                      \
+    write(fd, &line, sizeof(line));                                            \
     return 0;                                                                  \
   }
+
+#define fail(args...)                                                          \
+  do {                                                                         \
+    line = __LINE__;                                                           \
+    write(fd, &line, sizeof(line));                                            \
+    dprintf(fd, args);                                                         \
+    return 1;                                                                  \
+  } while (0);
 
 /*****************************************************************************/
 /*                                    Main                                   */
@@ -119,21 +135,27 @@ int main(int argc, char *argv[]) {
 
   for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
     for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
+      int pipefd[2];
+      if (-1 == pipe(pipefd)) {
+        puts("Pipe failed");
+      }
+
       int pid = fork();
       if (-1 == pid) {
         // fork failed
         puts("Fork failed");
       } else if (0 == pid) {
         // we are in the child process
-        int result = test->run();
+        close(pipefd[0]);
+        int result = test->run(pipefd[1]);
         exit(result);
       } else {
-
+        close(pipefd[1]);
         // we are in the parent process
-
         // Wait for child to finish
         int status;
         waitpid(pid, &status, 0);
+
         // Figure out if it crashed, failed, or passed
         if (!WIFEXITED(status)) {
           nerrors++;
@@ -145,6 +167,8 @@ int main(int argc, char *argv[]) {
           ntests++;
 
           printf(CSPEC_COLOR_RED "F" CSPEC_COLOR_RESET);
+          read(pipefd[0], &test->line, sizeof(test->line));
+          read(pipefd[0], test->output, CSPEC_OUTPUT_BUFFER_SIZE);
           test->status = 1;
         } else {
           ntests++;
@@ -168,6 +192,26 @@ int main(int argc, char *argv[]) {
         if (1 == test->status) {
           printf("%4d) %s %s\n", ++counter, cur->desc ? cur->desc : "It",
                  test->desc);
+          // Indent each line by 6 spaces
+          size_t start = 0;
+          while (start < CSPEC_OUTPUT_BUFFER_SIZE && test->output[start]) {
+            size_t end = start;
+
+            while (test->output[end] && '\n' != test->output[end])
+              end++;
+
+            printf(CSPEC_COLOR_RED);
+            printf("      ");
+            fwrite(test->output + start, 1, end - start, stdout);
+            printf(CSPEC_COLOR_RESET "\n");
+
+            start = end;
+            if (test->output[start])
+              start++;
+          }
+          // Print failure location
+          printf(CSPEC_COLOR_CYAN "      # ./%s:%d\n\n" CSPEC_COLOR_RESET,
+                 test->filename, test->line);
         }
       }
     }
