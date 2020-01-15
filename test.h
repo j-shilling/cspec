@@ -124,6 +124,15 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
     return 1;                                                                  \
   } while (0);
 
+#define assert(expr)                                                           \
+  do {                                                                         \
+    if (!(expr)) {                                                             \
+      fail("Failure/Error: assert(" #expr ")\n\n"                              \
+           "  expected: true\n"                                                \
+           "       got: false\n");                                             \
+    }                                                                          \
+  } while (0);
+
 /*****************************************************************************/
 /*                                    Main                                   */
 /*****************************************************************************/
@@ -190,7 +199,7 @@ int main(int argc, char *argv[]) {
     for (CSpecTestSuite *cur = cspec_test_suites_head; cur; cur = cur->next) {
       for (CSpecTestCase *test = cur->tests_head; test; test = test->next) {
         if (1 == test->status) {
-          printf("%4d) %s %s\n", ++counter, cur->desc ? cur->desc : "It",
+          printf("%4d) %s %s\n", ++counter, cur->desc ? cur->desc : "",
                  test->desc);
           // Indent each line by 6 spaces
           size_t start = 0;
@@ -242,4 +251,6 @@ int main(int argc, char *argv[]) {
 
   printf("%d examples, %d failures, %d errors" CSPEC_COLOR_RESET "\n", ntests,
          nfailures, nerrors);
+
+  return nerrors + nfailures;
 }

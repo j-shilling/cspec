@@ -2,15 +2,15 @@
 #include <test.h>
 
 it("test 1",
-
+   assert(0 == 0);
 );
 
 describe("First Describe Block",
   it("test 2",
+     assert(1 == 1);
   );
 
   it("test 3",
-     fail("This is failing on line 13");
   );
 );
 
