@@ -254,3 +254,35 @@ int main(int argc, char *argv[]) {
 
   return nerrors + nfailures;
 }
+
+typedef struct _cspec_matchers CSpecMatchers;
+typedef struct _cspec_expectation CSpecExpectation;
+
+struct _cspec_matchers {
+  int (*be_int)(CSpecExpectation *, int);
+};
+
+struct _cspec_expectation {
+  const char *got;
+  int value;
+  CSpecMatchers to;
+};
+
+static int cspec_matchers_be_int(CSpecExpectation *expectation, int x) {
+  printf("epectation->value = %d, x = %d\n", expectation->value, x);
+  return expectation->value == x ? 0 : -1;
+}
+
+static const CSpecMatchers positive = {.be_int = cspec_matchers_be_int};
+
+#define be(x)                                                                  \
+  be_int(&expectation, x)) {						\
+  fail ("Failure/Error: %s\n\n"                                                \
+        "     expected: %d\n"                                                  \
+	"          got: %d\n", expectation.got, x, expectation.value)          \
+  }
+
+#define expect(expr)                                                           \
+  CSpecExpectation expectation = {                                             \
+      .got = #expr, .value = (expr), .to = positive};                          \
+    if (expectation

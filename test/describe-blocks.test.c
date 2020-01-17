@@ -1,22 +1,18 @@
-#include <stdio.h>
 #include <test.h>
 
-it("test 1",
-   assert(0 == 0);
-);
+static inline int fib(int n) {
+  if (n < 2)
+    return 0;
 
-describe("First Describe Block",
-  it("test 2",
-     assert(1 == 1);
-  );
+  return fib(n-1) + fib(n-2);
+}
 
-  it("test 3",
-  );
-);
+describe("fib",
 
-describe("Second Describe Block",
-	 it("test 4",
-  );
+    it("returns 1 when n is 0",
 
-	 it("test 5", );
+        expect(fib(0)).to.be(1);
+
+    );
+
 );
