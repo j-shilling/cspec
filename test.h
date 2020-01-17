@@ -111,6 +111,9 @@ static inline void cspec_register_test_case(CSpecTestCase *node) {
 #define it(desc, body)                                                         \
   __init_test_case(__TEST__, desc) {                                           \
     int line = __LINE__;                                                       \
+    CSpecExpectation expectation;                                              \
+    expectation.to = positive;                                                 \
+    expectation.not_to = negative;                                             \
     body;                                                                      \
     write(fd, &line, sizeof(line));                                            \
     return 0;                                                                  \
@@ -255,6 +258,16 @@ int main(int argc, char *argv[]) {
   return nerrors + nfailures;
 }
 
+/*****************************************************************************/
+/*                             Assertion Library                             */
+/*****************************************************************************/
+
+// We need a couple of structures to hold the state of a particular
+// assertion and a pointer to a function to evaluate it. A
+// CSpecExpectation remembers what the user is trying to test, while a
+// CSpecMatchers holds a collection of function pointers. The user can
+// then use a collection of macros below to invoke these functions
+// using rspec-like syntax.
 typedef struct _cspec_matchers CSpecMatchers;
 typedef struct _cspec_expectation CSpecExpectation;
 
@@ -263,26 +276,53 @@ struct _cspec_matchers {
 };
 
 struct _cspec_expectation {
-  const char *got;
+  const char *expr;
+  const char *expected_preamble;
   int value;
   CSpecMatchers to;
+  CSpecMatchers not_to;
 };
 
+// The user will then use the expect macro to initialize a
+// CSpecExpectation object and start an if-statement
+#define expect(_expr)                                                          \
+  expectation.expr = #_expr;                                                   \
+  expectation.value = (_expr);                                                 \
+    if (expectation
+
+/*****************************************************************************/
+/*                          Matcher Implementations                          */
+/*****************************************************************************/
+
+// .to be -- Compares identity using ==
+
 static int cspec_matchers_be_int(CSpecExpectation *expectation, int x) {
-  printf("epectation->value = %d, x = %d\n", expectation->value, x);
+  expectation->expected_preamble = "";
   return expectation->value == x ? 0 : -1;
 }
 
+static int cspec_matchers_not_be_int(CSpecExpectation *expectation, int x) {
+  expectation->expected_preamble = "not ";
+  return expectation->value == x ? -1 : 0;
+}
+
+// Store the matchers that check a condition is true
 static const CSpecMatchers positive = {.be_int = cspec_matchers_be_int};
+// Store the matchers that check a condition is false
+static const CSpecMatchers negative = {.be_int = cspec_matchers_not_be_int};
+
+/*****************************************************************************/
+/*                         Matcher Invocation Macros                         */
+/*****************************************************************************/
+
+// These macros finish the if-statement started by the expect macro by
+// calling one of the matcher implementations above.
 
 #define be(x)                                                                  \
-  be_int(&expectation, x)) {						\
-  fail ("Failure/Error: %s\n\n"                                                \
-        "     expected: %d\n"                                                  \
-	"          got: %d\n", expectation.got, x, expectation.value)          \
+  be_int(&expectation, x)) {                                                   \
+    fail("Failure/Error: %s\n\n"                                               \
+         "     expected: %s%d\n"                                               \
+         "          got: %d\n",                                                \
+         expectation.expr, expectation.expected_preamble, (x),                 \
+         expectation.value)                                                    \
   }
-
-#define expect(expr)                                                           \
-  CSpecExpectation expectation = {                                             \
-      .got = #expr, .value = (expr), .to = positive};                          \
-    if (expectation
